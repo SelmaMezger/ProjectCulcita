@@ -1,0 +1,493 @@
+---
+title: "Culcita_Project_All"
+author: "Selma Mezger"
+date: "15 2 2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Import needed libraries
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(tidyr)
+
+library(afex) # for GLMM
+library(emmeans) # for posthoc analysis of GLMM
+
+```
+
+
+
+# Import and structuring of the datasets for the first 9 weeks (5 sites)
+
+```{r}
+Culcita <- read.csv("C://Users//Christian W//Documents//CushionStar_Matt//R predation raw 9w.csv", header = T, sep = ";")
+
+colnames(Culcita)[1] <- "Week"
+str(Culcita)
+
+Culcita$Week <- as.factor(Culcita$Week)
+Culcita$Site <- as.factor(Culcita$Site)
+Culcita$Treatment <- as.factor(Culcita$Treatment)
+
+str(Culcita)
+```
+
+
+
+# Plotting first 9 weeks
+
+```{r}
+# Summarize data to calculate mean and standard deviation per treatment for each week
+summary_data_SE <- Culcita %>%
+  group_by(Week, Treatment) %>%
+  summarize(
+    Recruits_Mean = mean(Recruits.Predation),
+    Recruits_SE = sd(Recruits.Predation) / sqrt(n()), # Calculate standard error
+    Transplants_Mean = mean(Transplants.Predation),
+    Transplants_SE = sd(Transplants.Predation) / sqrt(n()) # Calculate standard error
+  )
+
+
+# Plot with standard error
+# Create a line plot with summarized data
+Plot9 <- ggplot(data = summary_data_SE, aes(x = Week)) +
+  # Add line and points for Recruits.Predation
+  geom_line(aes(y = Recruits_Mean, linetype = Treatment, group = paste(Treatment, "Recruits"), color = "Recruits"), size = 1, alpha = 0.8) +
+  geom_point(aes(y = Recruits_Mean, color = "Recruits"), size = 3, alpha = 0.8) +
+  # Add error bars for Recruits.Predation
+  geom_errorbar(aes(ymin = Recruits_Mean - Recruits_SE, ymax = Recruits_Mean + Recruits_SE, color = "Recruits"), width = 0.2, alpha = 0.8) +
+  # Add line and points for Transplants.Predation
+  geom_line(aes(y = Transplants_Mean, linetype = Treatment, group = paste(Treatment, "Transplants"), color = "Transplants"), size = 1, alpha = 0.8) +
+  geom_point(aes(y = Transplants_Mean, color = "Transplants"), size = 3, alpha = 0.8) +
+  # Add error bars for Transplants.Predation
+  geom_errorbar(aes(ymin = Transplants_Mean - Transplants_SE, ymax = Transplants_Mean + Transplants_SE, color = "Transplants"), width = 0.2, alpha = 0.8) +
+  # Adjust legend and axis labels
+  labs(x = "Week", y = expression(atop("Accumulated", paste(italic("C. schemideliana")*" Predation (%)")))) +
+  scale_color_manual(values = c("Recruits" = "#21908CFF", "Transplants" = "#440154FF"), 
+                     labels = c("Recruits", "Transplants"), 
+                     name = "Variables") +
+  scale_linetype_manual(values = c("Control" = "solid", "Test" = "dashed"), labels = c("Control", "Test")) +
+  theme_bw() +
+  # Adjust linetype scale
+  theme(legend.key.size = unit(1.0, "cm"),
+        legend.key.height = unit(0.5, "cm"),  # smaller dashed linetype
+        panel.grid.major.x = element_blank(),  # Remove vertical gridlines
+        axis.text = element_text(size = 12),   # Increase size of axis labels
+        axis.title = element_text(size = 13),  # Increase size of axis titles
+        axis.ticks = element_line(size = 0.5)) # Increase size of axis ticks
+
+Plot9
+
+ggsave("C://Users//Christian W//Documents//CushionStar_Matt//Figure1.png", Plot9, width = 7.8, height = 5, dpi = 600)
+
+```
+
+
+# Plotting 27 weeks
+
+```{r}
+# Upload data for plotting
+Culcita27 <- read.csv("C://Users//Christian W//Documents//CushionStar_Matt//R predation outplants raw 27w.csv", header = T, sep = ";")
+
+colnames(Culcita27)[1] <- "Week"
+str(Culcita27)
+# n this case we don't turn time into a factor, so it stays a continuous variable for the plotting along the x axis
+Culcita27$Site <- as.factor(Culcita27$Site)
+Culcita27$Treatment <- as.factor(Culcita27$Treatment)
+
+str(Culcita27)
+
+# Summarize the data to calculate means and standard errors
+summary_data_Culcita27 <- Culcita27 %>%
+  group_by(Week, Treatment) %>%
+  summarize(
+    Culcita_Mean = mean(Culcita.Predation),
+    Culcita_SE = sd(Culcita.Predation) / sqrt(n())
+  )
+
+
+# Create a line plot with summarized data
+Plot27 <- ggplot(data = summary_data_Culcita27, aes(x = Week)) +
+  # Add line and points for Culcita Predation
+  geom_line(aes(y = Culcita_Mean, linetype = Treatment, group = Treatment, color = Treatment), size = 1, alpha = 0.8) +
+  geom_point(aes(y = Culcita_Mean, color = Treatment), size = 3, alpha = 0.8) +
+  # Add error bars for Culcita Predation
+  geom_errorbar(aes(ymin = Culcita_Mean - Culcita_SE, ymax = Culcita_Mean + Culcita_SE, color = Treatment), width = 0.2) +
+  # Add vertical line at week 9
+  geom_vline(xintercept = 9, linetype = "dashed", color = "black") +
+  # Adjust legend and axis labels
+    labs(x = "Week", y = expression(atop("Accumulated", paste(italic("C. schemideliana")*" Predation (%)")))) +
+  scale_linetype_manual(values = c("Control" = "solid", "Test" = "dashed"), labels = c("Control", "Test")) +
+  scale_color_manual(values = c("#3B528BFF", "#5DC863FF"), labels = c("Control", "Test")) + # Color assignment
+  scale_x_continuous(breaks = seq(1, max(summary_data_Culcita27$Week), by = 2)) + # Adjust x-axis breaks
+  theme_bw() +
+  theme(legend.key.size = unit(1.0, "cm"),
+        legend.key.height = unit(0.5, "cm"),  
+        panel.grid.major.x = element_blank(),  # Remove vertical gridlines
+        panel.grid.minor.x = element_blank(),  # Remove vertical minor gridlines
+        axis.text = element_text(size = 12),   
+        axis.title = element_text(size = 13),  
+        axis.ticks = element_line(size = 0.5))
+
+Plot27
+
+ggsave("C://Users//Christian W//Documents//CushionStar_Matt//Figure2.png", Plot27, width = 7.8, height = 5, dpi = 600)
+
+```
+
+
+
+
+
+
+# Compute Linear Mixed model for the first 9 weeks of experiment
+```{r}
+
+## Recruits
+# Build the GLMM and obtain the summary of the model
+Recruits_New<- mixed(Recruits.Predation~factor(Treatment)*factor(Week)+(1|Site),data=Culcita,check.contrasts=FALSE) # here we have treatment as the fixed effect, and allow random intercepts per site and week
+summary(Recruits_New)
+Recruits_New
+
+# Obtain the estimated marginal means
+rec_emmeans_model <- emmeans(Recruits_New, specs = ~ Treatment | Week)
+
+# Display the results
+summary(rec_emmeans_model, type = "response")
+
+
+# Perform pairwise comparisons with Tukey adjustment
+rec_pairwise_comp <- emmeans(Recruits_New, pairwise ~ Treatment | Week, adjust = "tukey")
+
+# Display the results
+summary(rec_pairwise_comp)
+
+
+
+
+## Transplants
+# Build the GLMM and obtain the summary of the model
+Transplant_New<- mixed(Transplants.Predation~factor(Treatment)*factor(Week)+(1|Site),data=Culcita,check.contrasts=FALSE) # here we have treatment as the fixed effect, and allow random intercepts per site and week
+summary(Transplant_New)
+Transplant_New
+
+# Obtain the estimated marginal means
+tran_emmeans_model <- emmeans(Transplant_New, specs = ~ Treatment | Week)
+
+# Display the results
+summary(tran_emmeans_model, type = "response")
+
+
+# Perform pairwise comparisons with Tukey adjustment
+tran_pairwise_comp <- emmeans(Transplant_New, pairwise ~ Treatment | Week, adjust = "tukey")
+
+# Display the results
+summary(tran_pairwise_comp)
+
+
+
+
+# Comparison transplants vs recruits predation
+
+# Upload new dataframe
+CulcitaTransRecr <- read.csv("C://Users//Christian W//Documents//CushionStar_Matt//R predation raw 9w RecruitTransplantComp.csv", header = T, sep = ";")
+
+
+colnames(CulcitaTransRecr)[1] <- "Week"
+str(CulcitaTransRecr)
+
+CulcitaTransRecr$Week <- as.factor(CulcitaTransRecr$Week)
+CulcitaTransRecr$Site <- as.factor(CulcitaTransRecr$Site)
+CulcitaTransRecr$Treatment <- as.factor(CulcitaTransRecr$Treatment)
+
+
+str(CulcitaTransRecr)
+
+CulcitaTransRecrCntr <- subset(CulcitaTransRecr, Treatment == "Control")
+
+# Run linear mixed model
+predation_model <- mixed(Predation_Amount ~ Predation_Type * Week + (1|Site),
+                         data = CulcitaTransRecrCntr,
+                         check.contrasts = FALSE)
+
+# Summary of the model
+summary(predation_model)
+predation_model
+
+# Obtain the estimated marginal means
+emmeans_model <- emmeans(predation_model, specs = ~ Predation_Type | Week)
+
+# Display the results
+summary(emmeans_model, type = "response")
+
+# Perform pairwise comparisons with Tukey adjustment
+pairwise_comp <- emmeans(predation_model, pairwise ~ Predation_Type | Week, adjust = "tukey")
+
+# Display the results
+summary(pairwise_comp)
+
+
+
+
+
+# Comparison Acro vs Poci recruits predation
+
+# Upload new dataframe
+Recruits9W <- read.csv("C://Users//Christian W//Documents//CushionStar_Matt//9 weeks recruits by quadrat.csv", header = T, sep = ";")
+
+
+colnames(Recruits9W)[1] <- "Week"
+str(Recruits9W)
+
+Recruits9W$Week <- as.factor(Recruits9W$Week)
+Recruits9W$Site <- as.factor(Recruits9W$Site)
+Recruits9W$Treatment <- as.factor(Recruits9W$Treatment)
+Recruits9W$Genus <- as.factor(Recruits9W$Genus)
+
+
+str(Recruits9W)
+
+RecruitsCntr <- subset(Recruits9W, Treatment == "Control")
+RecruitsTest <- subset(Recruits9W, Treatment == "Test")
+
+Recruits9W %>%
+  group_by(Week, Treatment, Genus) %>%
+  get_summary_stats(Culcita.Predation, type = "mean_sd")
+
+
+# Control Site
+# Run linear mixed model
+RecruitCntr_model <- mixed(Culcita.Predation ~ Genus * Week + (1|Site),
+                         data = RecruitsCntr,
+                         check.contrasts = FALSE)
+
+# Summary of the model
+summary(RecruitCntr_model)
+RecruitCntr_model
+
+
+
+# Test Site
+# Run linear mixed model
+RecruitTest_model <- mixed(Culcita.Predation ~ Genus * Week + (1|Site),
+                         data = RecruitsTest,
+                         check.contrasts = FALSE)
+
+# Summary of the model
+summary(RecruitTest_model)
+RecruitTest_model
+
+
+
+
+
+
+# Comparison Acro vs Poci transplants predation
+
+# Upload new dataframe
+Transplants9W <- read.csv("C://Users//Christian W//Documents//CushionStar_Matt//9 weeks outplants by cluster.csv", header = T, sep = ";")
+
+
+colnames(Transplants9W)[1] <- "Week"
+str(Transplants9W)
+
+Transplants9W$Week <- as.factor(Transplants9W$Week)
+Transplants9W$Site <- as.factor(Transplants9W$Site)
+Transplants9W$Designation <- as.factor(Transplants9W$Designation)
+Transplants9W$Genus <- as.factor(Transplants9W$Genus)
+
+
+str(Transplants9W)
+
+TransplantsCntr <- subset(Transplants9W, Designation == "Control")
+TransplantsTest <- subset(Transplants9W, Designation == "Test")
+
+Transplants9W %>%
+  group_by(Week, Designation, Genus) %>%
+  get_summary_stats(Culcita.Predation, type = "mean_sd")
+
+
+# Control Site
+# Run linear mixed model
+TransplantsCntr_model <- mixed(Culcita.Predation ~ Genus * Week + (1|Site),
+                         data = TransplantsCntr,
+                         check.contrasts = FALSE)
+
+# Summary of the model
+summary(TransplantsCntr_model)
+TransplantsCntr_model
+
+# Obtain the estimated marginal means
+emmeans_model <- emmeans(TransplantsCntr_model, specs = ~ Genus | Week)
+
+# Display the results
+summary(emmeans_model, type = "response")
+
+# Perform pairwise comparisons with Tukey adjustment
+pairwise_comp <- emmeans(TransplantsCntr_model, pairwise ~ Genus | Week, adjust = "tukey")
+
+# Display the results
+summary(pairwise_comp)
+
+
+
+# Test Site
+# Run linear mixed model
+TransplantsTest_model <- mixed(Culcita.Predation ~ Genus * Week + (1|Site),
+                         data = TransplantsTest,
+                         check.contrasts = FALSE)
+
+# Summary of the model
+summary(TransplantsTest_model)
+TransplantsTest_model
+
+```
+
+
+
+
+
+
+
+
+# 27 weeks test vs control comparison
+
+# Import and structuring of the datasets for the recovery period (Week 9-27)
+
+```{r}
+# first I input the subset of the experimental data
+Culcita27_short <- Culcita27[Culcita27$Week %in% c(9, 15, 21, 27), ]
+
+str(Culcita27_short)
+
+```
+
+
+
+# GLMM for the recovery phase
+
+```{r}
+# Build the GLMM and obtain the summary of the model
+Culcita27_short_model<- mixed(Culcita.Predation~factor(Treatment)*factor(Week)+(1|Site),data=Culcita27_short,check.contrasts=FALSE) # here we have treatment as the fixed effect, and allow random intercepts per site and week
+summary(Culcita27_short_model)
+Culcita27_short_model
+
+# Obtain the estimated marginal means
+Culcita27_short_emmeans_model <- emmeans(Culcita27_short_model, specs = ~ Treatment | Week)
+
+# Display the results
+summary(Culcita27_short_emmeans_model, type = "response")
+
+
+# Perform pairwise comparisons with Tukey adjustment
+Culcita27_short_pairwise_comp <- emmeans(Culcita27_short_model, pairwise ~ Treatment | Week, adjust = "tukey")
+
+# Display the results
+summary(Culcita27_short_pairwise_comp)
+```
+
+
+# quickly double checking the assumption that the slopes for both curves are the same using a simple linear regression model
+
+```{r}
+# Fit a linear model with interaction term
+model_short <- lm(Culcita.Predation ~ Week * Treatment, data = Culcita27_short)
+
+# Print the summary of the model
+summary(model_short)
+```
+
+
+
+
+
+# Culcita density
+
+```{r}
+CulcitaDensity <- read.csv("C://Users//Christian W//Documents//CushionStar_Matt//Density.csv", header = T, sep = ",")
+
+colnames(CulcitaDensity)[1] <- "Site"
+str(CulcitaDensity)
+
+CulcitaDensity$Site <- as.factor(CulcitaDensity$Site)
+
+str(CulcitaDensity)
+
+
+# test for normality
+# Build the linear model
+model  <- lm(Density ~ Site, data = CulcitaDensity)
+# Create a QQ plot of residuals
+ggqqplot(residuals(model))
+# Compute Shapiro-Wilk test of normality
+shapiro_test(residuals(model))
+
+CulcitaDensity %>%
+  group_by(Site) %>%
+  shapiro_test(Density)
+
+
+# test homogeneity
+CulcitaDensity %>% levene_test(Density ~ Site)
+
+# data is neither normal nor homogenous --> non-parametric test
+
+res.kruskal <- CulcitaDensity %>% kruskal_test(Density ~ Site)
+res.kruskal # p = 0.00318
+
+CulcitaDensity %>% kruskal_effsize(Density ~ Site) # large, eta2[H] = 0.22
+
+pwc <- CulcitaDensity %>% dunn_test(Density ~ Site, p.adjust.method = "bonferroni")
+pwc # WS to OOTB R (0.014) and WS to OOTS L (0.009)
+
+
+
+# Plotting
+library(viridis)
+
+# Define the colors for different sites using the viridis color palette
+site_colors <- viridis_pal()(n_distinct(CulcitaDensity$Site))
+
+
+# Create the boxplot with original measurements as dots
+p <- ggplot(CulcitaDensity, aes(x = Site, y = Density, fill = Site)) +
+  geom_boxplot(alpha = 0.7) +  # Add boxplot with transparency
+  geom_point(aes(color = Site), position = position_jitter(width = 0.2), size = 2) +  # Add points with jitter for better visibility
+  scale_fill_manual(values = site_colors) +  # Set colors for boxplot
+  scale_color_manual(values = site_colors) +  # Set colors for points
+  labs(x = "Site", y = expression(italic("C. schemideliana")*" density/"~100 * m^2)) +
+  ylim(0, 8) +
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank(),  # Remove vertical gridlines
+        panel.grid.minor.x = element_blank(),  # Remove vertical minor gridlines
+        axis.text = element_text(size = 12),   
+        axis.title = element_text(size = 13),  
+        axis.ticks = element_line(size = 0.5)) +
+  # Use minimal theme
+  theme(legend.position = "none")  # Remove legend
+
+# Calculate maximum density for each site
+max_density <- aggregate(Density ~ Site, data = CulcitaDensity, FUN = max)
+
+# Add annotation letters
+annotation_df <- data.frame(
+  Site = max_density$Site,
+  Max_Density = max_density$Density,
+  Letter = c("ab", "ab", "a", "a", "b")
+)
+
+DensityPlot <- p + 
+  geom_text(data = annotation_df, aes(x = Site, y = Max_Density, label = Letter), vjust = -1, size = 6)
+
+DensityPlot
+
+ggsave("C://Users//Christian W//Documents//CushionStar_Matt//Figure3.png", DensityPlot, width = 7.8, height = 5, dpi = 600)
+```
+
